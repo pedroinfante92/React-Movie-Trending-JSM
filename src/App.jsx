@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useDebounce } from "react-use";
 import MovieCard from "./components/MovieCard";
 import Search from "./components/Search";
+import { getTrendingMovies, updateSearchCount } from "./appwrite";
 
 const API_BASE_URL = "https://api.themoviedb.org/3";
 
@@ -18,19 +19,20 @@ const App = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [errorMessage, setErrorMessage] = useState(null);
   const [movieList, setMovieList] = useState([]);
+  const [trendingMovies, setTrendingMovies] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [debounceSearchTerm, setDebounceSearchTearm] = useState('')
+  const [debounceSearchTerm, setDebounceSearchTearm] = useState("");
 
-  useDebounce(() => setDebounceSearchTearm(searchTerm), 500, [searchTerm] )
+  useDebounce(() => setDebounceSearchTearm(searchTerm), 1000, [searchTerm]);
 
   const fetchMovies = async (query = "") => {
     setIsLoading(true);
     setErrorMessage("");
 
     try {
-      const endpoint = query 
-        ?`${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&api_key=${API_KEY}`
-        :`${API_BASE_URL}/discover/movie?sort_by=popularity.desc&api_key=${API_KEY}`
+      const endpoint = query
+        ? `${API_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&api_key=${API_KEY}`
+        : `${API_BASE_URL}/discover/movie?sort_by=popularity.desc&api_key=${API_KEY}`;
 
       const response = await fetch(endpoint, API_OPTIONS);
 
@@ -49,6 +51,10 @@ const App = () => {
       }
 
       setMovieList(data.results || []);
+
+      if (query && data.results.length > 0) {
+        await updateSearchCount(query, data.results[0]);
+      }
     } catch (error) {
       console.error(`Error fetching movies: ${error}`);
 
@@ -58,9 +64,20 @@ const App = () => {
     }
   };
 
+  const loadingTrendingMovies = async () => {
+    try {
+      const movies = await getTrendingMovies();
+      setTrendingMovies(movies)
+    } catch (error) {
+      console.error(`Error fetching trending movies: ${error}`);
+    }
+  };
+
   useEffect(() => {
     fetchMovies(debounceSearchTerm);
   }, [debounceSearchTerm]);
+
+  useEffect(() => loadingTrendingMovies(), []);
 
   return (
     <main>
